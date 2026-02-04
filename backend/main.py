@@ -15,7 +15,7 @@ origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",    # Local development
     "https://dancing-churros-a22bc1.netlify.app", # Netlify production
-    "https://shayanraza92.pythonanywhere.com", # Backend itself (good practice)
+    "https://ShayanRaza.pythonanywhere.com", # Backend itself (Correct URL)
 ]
 
 app.add_middleware(
@@ -31,4 +31,8 @@ app.include_router(rides.router)
 
 @app.get("/")
 def read_root():
-    return {"message": "Carpooling App API is running"}
+    return {
+        "message": "Carpooling App API is running",
+        "version": "1.1 (CORS Fix)",
+        "allowed_origins": origins
+    }
