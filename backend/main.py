@@ -13,13 +13,14 @@ app = FastAPI(lifespan=lifespan)
 
 origins = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000", # Add IP variant
-    "https://your-frontend-domain.vercel.app", # Placeholder for live deployment
+    "http://127.0.0.1:3000",    # Local development
+    "https://dancing-churros-a22bc1.netlify.app", # Netlify production
+    "https://shayanraza92.pythonanywhere.com", # Backend itself (good practice)
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Allow all for dev
+    allow_origins=origins, # Use defined origins list
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
