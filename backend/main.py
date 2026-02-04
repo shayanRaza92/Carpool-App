@@ -6,7 +6,7 @@ from .routers import auth, rides
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_db_and_tables()
+    # create_db_and_tables() # Commenting out to check if this is causing the hang
     yield
 
 app = FastAPI(lifespan=lifespan)
