@@ -15,14 +15,19 @@ The error `ImportError: attempted relative import...` happens because PythonAnyw
 ```python
 import sys
 import os
-from a2wsgi import ASGIMiddleware # Import the adapter
 
-# 1. Add your PROJECT ROOT to the path (NOT the backend folder)
+# 1. Add your PROJECT ROOT to the path
 path = '/home/ShayanRaza/Carpool-App'
 if path not in sys.path:
     sys.path.append(path)
 
-# 2. Import the app from the backend package
+# 2. Add the USER SITE-PACKAGES to the path (Crucial for packages installed with --user)
+# This points specifically to where you saw 'a2wsgi' installed
+site_packages = '/home/ShayanRaza/.local/lib/python3.13/site-packages'
+if site_packages not in sys.path:
+    sys.path.append(site_packages)
+
+from a2wsgi import ASGIMiddleware # Import the adapter
 from backend.main import app as fastapi_app
 
 # 3. Wrap the ASGI app with the WSGI adapter
