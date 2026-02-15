@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Carpool",
+  title: "KarPool",
   description: "Share the journey.",
   manifest: "/manifest.json",
   icons: {
