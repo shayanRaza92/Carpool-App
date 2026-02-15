@@ -7,7 +7,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlmodel import create_engine, text
 
 # Use the same database URL as the main app
-DATABASE_URL = "postgresql://neondb_owner:npg_X6k1wWqJpziY@ep-spring-shape-a83234d4-pooler.eastus2.azure.neon.tech/neondb?sslmode=require"
+DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_X6k1wWqJpziY@ep-spring-shape-a83234d4-pooler.eastus2.azure.neon.tech/neondb?sslmode=require")
 
 engine = create_engine(DATABASE_URL)
 
