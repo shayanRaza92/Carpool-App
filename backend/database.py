@@ -7,7 +7,7 @@ DATABASE_URL = os.environ.get("DATABASE_URL")
 if not DATABASE_URL:
     # Build absolute path to database.db in component root
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    sqlite_file_name = os.path.join(BASE_DIR, "database.db")
+    sqlite_file_name = os.path.join(BASE_DIR, "database_v2.db")
     
     # check_same_thread=False is needed for SQLite with FastAPI
     sqlite_url = f"sqlite:///{sqlite_file_name}"
