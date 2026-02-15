@@ -7,12 +7,24 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from sqlmodel import create_engine, text
 
 # Use the same database URL as the main app
+# Use the same database URL as the main app
 DATABASE_URL = os.environ.get("DATABASE_URL", "postgresql://neondb_owner:npg_X6k1wWqJpziY@ep-spring-shape-a83234d4-pooler.eastus2.azure.neon.tech/neondb?sslmode=require")
+
+# Mask password for debugging
+if DATABASE_URL:
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(DATABASE_URL)
+        print(f"DEBUG: Attempting to connect to: {parsed.hostname} as user: {parsed.username}")
+    except Exception as e:
+        print(f"DEBUG: Could not parse URL for logging: {e}")
 
 engine = create_engine(DATABASE_URL)
 
 def run_migration():
-    with engine.connect() as connection:
+    print("Starting migration...")
+    try:
+        with engine.connect() as connection:
         # 1. Add columns to Ride table
         try:
             connection.execute(text("ALTER TABLE ride ADD COLUMN status VARCHAR DEFAULT 'scheduled'"))
