@@ -1,6 +1,6 @@
 {
-    "name": "Carpool",
-    "short_name": "Carpool",
+    "name": "KarPool",
+    "short_name": "KarPool",
     "description": "Connect with verified students going your way.",
     "start_url": "/dashboard",
     "display": "standalone",
