@@ -183,6 +183,7 @@ async def book_ride(ride_id: int, user: User = Depends(get_current_user), sessio
     )
     
     # Note: We do NOT decrement seats here anymore. Seats are decremented upon approval.
+    # Deployment Trigger: Force Update v2
     
     session.add(booking)
     session.commit()
