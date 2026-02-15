@@ -60,6 +60,7 @@ def run_migration():
 
         connection.commit()
         print("Migration completed.")
-
+    except Exception as e:
+        print(f"Migration failed at top level: {e}")
 if __name__ == "__main__":
     run_migration()
