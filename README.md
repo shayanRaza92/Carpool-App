@@ -34,3 +34,18 @@ Carpool is a ride-sharing application developed for university students in Karac
 - SQLModel (ORM)
 - PostgreSQL (Production Database)
 - SQLite (Local Development)
+
+## Mobile Application
+
+**Download the App:** [Download APK](/app-release.apk)
+
+The Carpool application is now available on Android!
+- **Built with:** React Native (Expo) & WebView
+- **Features:** Full access to all web features in a native mobile experience.
+- **Distribution:** Direct APK download for free access.
+
+### How to Install
+1. Click the download link above.
+2. Open the downloaded file on your Android device.
+3. If prompted, allow installation from "Unknown Sources" (since it's a direct download).
+4. Install and enjoy!

@@ -18,7 +18,13 @@ export default function Home() {
           >
             Sign In
           </Link>
-          {/* If we had a register page separate, we'd link it here too */}
+          <a
+            href="/app-release.apk"
+            download
+            className="px-8 py-3 bg-transparent border-2 border-white text-white font-bold rounded-full hover:bg-white/10 transition-all"
+          >
+            Download App
+          </a>
         </div>
       </main>
     </div>
