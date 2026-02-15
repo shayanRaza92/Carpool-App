@@ -86,6 +86,10 @@ export const api = {
                 throw new Error(responseData?.detail || 'An error occurred');
             }
             return responseData;
+        } catch (err: any) {
+            if (err.name === 'AbortError') {
+                throw new Error("Request timed out. Please check your connection.");
+            }
             throw err;
         }
     },
