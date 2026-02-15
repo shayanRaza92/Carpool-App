@@ -188,13 +188,10 @@ export default function FindRide() {
                                             <button
                                                 type="button"
                                                 onClick={async () => {
-                                                    if (window.confirm("Confirm booking this seat?")) {
+                                                    if (window.confirm("Request to book this seat?")) {
                                                         try {
-                                                            console.log("Attempting to book ride:", ride.id);
                                                             await api.post(`/rides/${ride.id}/book`, {});
-                                                            alert("Booking Confirmed!");
-                                                            // Update UI locally
-                                                            setRides(rides.map(r => r.id === ride.id ? { ...r, seats_available: r.seats_available - 1 } : r).filter(r => r.seats_available > 0));
+                                                            alert("Booking Requested! Please wait for driver approval in 'My Journeys'.");
                                                         } catch (err: any) {
                                                             console.error("Booking failed:", err);
                                                             alert(err.message || "Booking failed");
@@ -203,7 +200,7 @@ export default function FindRide() {
                                                 }}
                                                 className="flex-1 md:flex-none bg-blue-600 hover:bg-blue-500 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
                                             >
-                                                Book Seat
+                                                Request Seat
                                             </button>
                                         </div>
                                     </div>

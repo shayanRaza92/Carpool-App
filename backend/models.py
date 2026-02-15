@@ -41,28 +41,25 @@ class Ride(SQLModel, table=True):
     date: str # YYYY-MM-DD
     seats_available: int = 3
     whatsapp_number: str # Contact info
+    ladies_only: bool = False
+    status: str = "scheduled" # scheduled, in_progress, completed, cancelled
 
 class RideCreate(SQLModel):
     origin_area: str
     destination_area: str
     departure_time: str
     date: str
-    seats_available: int
+    seats_available: int = 3
     whatsapp_number: str
+    ladies_only: bool = False
+    status: str = "scheduled" # scheduled, in_progress, completed, cancelled
 
-class RideRead(SQLModel):
-    id: int
-    driver_email: str
-    origin_area: str
-    destination_area: str
-    departure_time: str
-    date: str
-    seats_available: int
-    whatsapp_number: str
+class RideRead(Ride):
+    pass
 
 class Booking(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    ride_id: int = Field(index=True)
-    passenger_email: str = Field(index=True)
+    ride_id: int = Field(foreign_key="ride.id")
+    passenger_email: str = Field(foreign_key="user.email")
+    status: str = "pending" # pending, accepted, rejected, cancelled
     booking_time: str = Field(default_factory=lambda: datetime.now().isoformat())
-

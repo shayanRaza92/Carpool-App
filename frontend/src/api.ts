@@ -86,6 +86,43 @@ export const api = {
                 throw new Error(responseData?.detail || 'An error occurred');
             }
             return responseData;
+            throw err;
+        }
+    },
+
+    async put(endpoint: string, data: any) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+        try {
+            const res = await fetch(`${API_URL}${endpoint}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(localStorage.getItem('access_token') ? { 'Authorization': `Bearer ${localStorage.getItem('access_token')}` } : {})
+                },
+                body: JSON.stringify(data),
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            const text = await res.text();
+            let responseData;
+            try {
+                responseData = JSON.parse(text);
+            } catch (e) {
+                responseData = { detail: text };
+            }
+
+            if (!res.ok) {
+                if (res.status === 401) {
+                    localStorage.removeItem('access_token');
+                    window.location.href = '/login';
+                    throw new Error("Session expired. Please login again.");
+                }
+                throw new Error(responseData?.detail || 'An error occurred');
+            }
+            return responseData;
         } catch (err: any) {
             if (err.name === 'AbortError') {
                 throw new Error("Request timed out. Please check your connection.");

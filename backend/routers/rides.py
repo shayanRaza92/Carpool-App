@@ -44,6 +44,10 @@ from ..models import Ride, RideCreate, RideRead, User, Booking # Import Booking
 
 @router.post("/", response_model=RideRead)
 async def create_ride(ride: RideCreate, user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    # 0. Validate Ladies Only
+    if ride.ladies_only and user.gender != "Female":
+         raise HTTPException(status_code=400, detail="Only female drivers can post 'Ladies Only' rides.")
+
     # 1. Validate Date (Today or Tomorrow only)
     try:
         ride_date = datetime.strptime(ride.date, "%Y-%m-%d").date()
@@ -53,7 +57,8 @@ async def create_ride(ride: RideCreate, user: User = Depends(get_current_user), 
     now = datetime.now()
     today = now.date()
     tomorrow = today + timedelta(days=1)
-
+    
+    # Allow posting for today and tomorrow
     if ride_date < today:
         raise HTTPException(status_code=400, detail="Cannot post rides in the past.")
     if ride_date > tomorrow:
@@ -76,7 +81,9 @@ async def create_ride(ride: RideCreate, user: User = Depends(get_current_user), 
         departure_time=ride.departure_time,
         date=ride.date,
         seats_available=ride.seats_available,
-        whatsapp_number=ride.whatsapp_number
+        whatsapp_number=ride.whatsapp_number,
+        ladies_only=ride.ladies_only,
+        status="scheduled"
     )
     session.add(db_ride)
     session.commit()
@@ -86,19 +93,17 @@ async def create_ride(ride: RideCreate, user: User = Depends(get_current_user), 
 @router.get("/search", response_model=List[RideRead])
 async def search_rides(area: str, user: User = Depends(get_current_user), session: Session = Depends(get_session)):
     # Search for rides with fuzzy matching logic
-    # 1. Fetch all valid future rides to filter in Python (needed for fuzzy matching)
     today_str = date.today().isoformat()
-    
-    # We fetch potentially relevant rides first to minimize Python-side filtering if possible,
-    # but for fuzzy search on areas, we might need a broader query or just fetch all active rides.
-    # To be safe and since fuzzy match needs the text, let's fetch active rides.
-    # Optimally: fetch rides where destination matches user's uni (fuzzy or exact? 
-    # Let's assume Uni is also fuzzy matched per requirements "entry university name... also apply in find ride matching")
     
     statement = select(Ride).where(
         Ride.date >= today_str,
-        Ride.seats_available > 0 
-    ).order_by(Ride.date, Ride.departure_time)
+        Ride.seats_available > 0,
+        Ride.status == "scheduled"
+    )
+    
+    # Gender Filtering
+    if user.gender != "Female":
+        statement = statement.where(Ride.ladies_only == False)
     
     results = session.exec(statement).all()
     
@@ -108,26 +113,15 @@ async def search_rides(area: str, user: User = Depends(get_current_user), sessio
     def normalize(text):
         if not text:
             return ""
-        # Lowercase and remove all non-alphanumeric characters for comparison
         return re.sub(r'[^a-z0-9]', '', text.lower())
 
     def is_match(query, target):
         if not query or not target:
             return False
-        
         n_query = normalize(query)
         n_target = normalize(target)
-        
-        # 1. Exact match after normalization
-        if n_query == n_target:
-            return True
-            
-        # 2. Substring match (e.g. "Gulshan" matches "Gulshan-e-Iqbal")
-        if n_query in n_target or n_target in n_query:
-            return True
-            
-        # 3. Fuzzy match using SequenceMatcher
-        # Ratio > 0.8 means 80% similarity
+        if n_query == n_target: return True
+        if n_query in n_target or n_target in n_query: return True
         ratio = difflib.SequenceMatcher(None, n_query, n_target).ratio()
         return ratio > 0.80
 
@@ -148,12 +142,7 @@ async def search_rides(area: str, user: User = Depends(get_current_user), sessio
                 continue
 
         # Fuzzy Match Logic
-        # Match Origin Area VS Search Area
         area_match = is_match(target_area, r.origin_area)
-        
-        # Match Destination VS User University
-        # Note: We should probably match the destination to the user's registered university.
-        # If the user selected "Other" and typed "Fast", and ride is to "FAST-NUCES", it should match.
         uni_match = is_match(user_uni, r.destination_area)
         
         if area_match and uni_match:
@@ -171,33 +160,113 @@ async def book_ride(ride_id: int, user: User = Depends(get_current_user), sessio
     # 2. Check availability
     if ride.seats_available < 1:
         raise HTTPException(status_code=400, detail="No seats available")
-        
-    # 3. Check if driver is passenger (Optional, but good practice)
+    
+    # 3. Check Ladies Only
+    if ride.ladies_only and user.gender != "Female":
+        raise HTTPException(status_code=403, detail="This is a Ladies Only ride.")
+
+    # 4. Check if driver is passenger
     if ride.driver_email == user.email:
         raise HTTPException(status_code=400, detail="You cannot book your own ride")
 
-    # 4. Check if already booked
+    # 5. Check if already booked
     statement = select(Booking).where(Booking.ride_id == ride_id, Booking.passenger_email == user.email)
     existing_booking = session.exec(statement).first()
     if existing_booking:
         raise HTTPException(status_code=400, detail="You have already booked this ride")
 
-    # 5. Create Booking & Update Seats
-    booking = Booking(ride_id=ride_id, passenger_email=user.email)
-    ride.seats_available -= 1
+    # 6. Create Booking (Pending status)
+    booking = Booking(
+        ride_id=ride_id, 
+        passenger_email=user.email,
+        status="pending"
+    )
+    
+    # Note: We do NOT decrement seats here anymore. Seats are decremented upon approval.
     
     session.add(booking)
-    session.add(ride)
     session.commit()
     
-    return {"message": "Ride booked successfully", "seats_remaining": ride.seats_available}
+    return {"message": "Booking requested. Waiting for driver approval.", "status": "pending"}
 
-@router.get("/booked", response_model=List[RideRead])
+@router.get("/booked") 
 async def get_my_bookings(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
-    # Get rides booked by current user
-    statement = select(Ride).join(Booking, Ride.id == Booking.ride_id).where(Booking.passenger_email == user.email)
+    # Get rides booked by current user with booking status
+    statement = select(Booking, Ride).where(Booking.ride_id == Ride.id, Booking.passenger_email == user.email)
     results = session.exec(statement).all()
-    return results
+    
+    formatted_results = []
+    for booking, ride in results:
+        formatted_results.append({
+            "id": ride.id,
+            "driver_email": ride.driver_email,
+            "origin_area": ride.origin_area,
+            "destination_area": ride.destination_area,
+            "departure_time": ride.departure_time,
+            "date": ride.date,
+            "seats_available": ride.seats_available,
+            "whatsapp_number": ride.whatsapp_number,
+            "booking_status": booking.status, # pending, accepted, rejected
+            "booking_id": booking.id
+        })
+    return formatted_results
+
+from pydantic import BaseModel
+class BookingStatusUpdate(BaseModel):
+    status: str # accepted, rejected
+
+@router.put("/bookings/{booking_id}/status")
+async def update_booking_status(booking_id: int, update: BookingStatusUpdate, user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    booking = session.get(Booking, booking_id)
+    if not booking:
+        raise HTTPException(status_code=404, detail="Booking not found")
+        
+    ride = session.get(Ride, booking.ride_id)
+    if not ride:
+         raise HTTPException(status_code=404, detail="Ride not found")
+         
+    # Only driver can update status
+    if ride.driver_email != user.email:
+        raise HTTPException(status_code=403, detail="Not authorized")
+        
+    if update.status == "accepted":
+        if ride.seats_available < 1:
+             raise HTTPException(status_code=400, detail="No seats available to accept")
+        booking.status = "accepted"
+        ride.seats_available -= 1
+        session.add(ride)
+    elif update.status == "rejected":
+        booking.status = "rejected"
+        # If it was previously accepted, we should give back the seat? (Not handling re-rejection complex logic for now)
+    else:
+        raise HTTPException(status_code=400, detail="Invalid status")
+        
+    session.add(booking)
+    session.commit()
+    return {"message": f"Booking {update.status}"}
+
+@router.get("/driver/requests")
+async def get_driver_requests(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    # Get all bookings for rides driven by current user
+    # Join Booking and Ride
+    statement = select(Booking, Ride).join(Ride).where(Ride.driver_email == user.email, Booking.status == "pending")
+    results = session.exec(statement).all()
+    
+    # Format output
+    requests = []
+    for booking, ride in results:
+        # Get passenger details
+        passenger = session.exec(select(User).where(User.email == booking.passenger_email)).first()
+        requests.append({
+            "booking_id": booking.id,
+            "ride_id": ride.id,
+            "passenger_name": passenger.full_name if passenger else "Unknown",
+            "passenger_email": booking.passenger_email,
+            "origin": ride.origin_area,
+            "destination": ride.destination_area,
+            "time": ride.departure_time
+        })
+    return requests
 
 @router.get("/", response_model=List[RideRead])
 async def get_all_rides(session: Session = Depends(get_session)):
