@@ -9,7 +9,9 @@ class User(SQLModel, table=True):
     full_name: str
     university: str
     phone: Optional[str] = None
-    role: str = "user" 
+    role: str = "user"
+    gender: str = "Other"
+    is_verified: bool = False 
 
 class UserCreate(SQLModel):
     email: str

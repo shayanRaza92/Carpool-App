@@ -47,13 +47,13 @@ def run_migration():
             
             # 3. Add columns to User table (just in case they were reverted too)
             try:
-                connection.execute(text("ALTER TABLE user ADD COLUMN gender VARCHAR DEFAULT 'Other'"))
+                connection.execute(text('ALTER TABLE "user" ADD COLUMN gender VARCHAR DEFAULT \'Other\''))
                 print("Added 'gender' locally to User table")
             except Exception as e:
                 print(f"User.gender might already exist: {e}")
             
             try:
-                connection.execute(text("ALTER TABLE user ADD COLUMN is_verified BOOLEAN DEFAULT FALSE"))
+                connection.execute(text('ALTER TABLE "user" ADD COLUMN is_verified BOOLEAN DEFAULT FALSE'))
                 print("Added 'is_verified' locally to User table")
             except Exception as e:
                 print(f"User.is_verified might already exist: {e}")
