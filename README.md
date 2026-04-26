@@ -8,23 +8,26 @@ Carpool is a ride-sharing application developed for university students in Karac
    - Added an "Other" option for Universities and Areas in Registration, functionality to Find a Ride, and Offer a Ride pages.
    - Users can type custom names if their specific location is not in the dropdown list.
 
-2. **Smart Search**
+2. **Smart Search & Pre-filled Data**
    - Implemented fuzzy search logic in the backend.
-   - It handles case-insensitivity and ignores special characters (e.g., "gulshan" matches "Gulshan-e-Iqbal").
+   - Driver destinations and WhatsApp numbers are seamlessly populated from their registered profile when offering a ride.
 
-3. **Responsive UI**
-   - Replaced standard date/time pickers with custom dropdowns for Day, Month, Year, Hour, and Minute.
-   - Ensures better usability on mobile devices.
+3. **Driver Rating & Review System**
+   - Passengers can rate (1-5 stars) and review drivers after a ride is marked as completed.
+   - A driver's average rating and total review count are dynamically displayed on their dashboard profile and in search results.
 
-4. **Integration**
-   - Direct integration with WhatsApp for communication between drivers and riders.
+4. **Ride Booking Workflow**
+   - Full lifecycle management for rides: Scheduled -> Accepted (Booking) -> Completed.
+   - Drivers can manage incoming requests (Accept/Reject) and mark journeys as completed.
+
+5. **WhatsApp Integration**
+   - Secure and direct integration with WhatsApp for communication between drivers and confirmed riders.
 
 ## Technology Stack
 
 **Frontend**
 - Next.js 16 (React Framework)
 - Tailwind CSS v4 (Styling)
-- Lucide React (Icons)
 
 **Backend**
 - FastAPI (Python Web Framework)
@@ -32,8 +35,7 @@ Carpool is a ride-sharing application developed for university students in Karac
 
 **Database**
 - SQLModel (ORM)
-- PostgreSQL (Production Database)
-- SQLite (Local Development)
+- SQLite / PostgreSQL
 
 ## Mobile Application
 

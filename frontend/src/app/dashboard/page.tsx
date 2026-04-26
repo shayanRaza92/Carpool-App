@@ -1,19 +1,19 @@
 "use client";
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { api } from '@/api';
 
 export default function Dashboard() {
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
 
     useEffect(() => {
-        // Check for token
         const token = localStorage.getItem('access_token');
         if (!token) {
             router.push('/login');
+        } else {
+            api.get('/auth/me').then(u => setUser(u)).catch(() => router.push('/login'));
         }
-        // Mock user for now
-        setUser({ name: "Traveler" });
     }, [router]);
 
     return (
@@ -46,6 +46,28 @@ export default function Dashboard() {
             </header>
 
             <main className="max-w-7xl mx-auto px-6 py-12">
+                {/* Profile Section */}
+                {user && (
+                    <div className="mb-8 flex items-center gap-4 bg-[#0a0a0a] border border-white/5 p-6 rounded-2xl w-full max-w-md">
+                        <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center text-2xl font-bold text-white shrink-0">
+                            {user.full_name ? user.full_name[0].toUpperCase() : 'U'}
+                        </div>
+                        <div>
+                            <h2 className="text-xl font-bold">{user.full_name}</h2>
+                            <p className="text-sm text-slate-400">{user.university}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                                <svg className="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                                <span className="text-sm font-medium text-white">
+                                    {user.average_rating > 0 ? user.average_rating.toFixed(1) : 'New'}
+                                </span>
+                                <span className="text-xs text-slate-500">
+                                    ({user.total_reviews} review{user.total_reviews !== 1 ? 's' : ''})
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Hero Section */}
                 <div className="mb-16">
                     <div className="rounded-[2rem] bg-gradient-to-br from-slate-900 to-slate-950 border border-white/5 p-10 relative overflow-hidden group">

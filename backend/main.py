@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from .database import create_db_and_tables
-from .routers import auth, rides
+from .routers import auth, rides, reviews
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,11 +28,12 @@ app.add_middleware(
 
 app.include_router(auth.router)
 app.include_router(rides.router)
+app.include_router(reviews.router)
 
 @app.get("/")
 def read_root():
     return {
         "message": "Carpooling App API is running",
-        "version": "2.0 (Driver Approval)",
+        "version": "3.0 (Reviews & Ratings)",
         "allowed_origins": origins
     }

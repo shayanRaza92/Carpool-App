@@ -3,6 +3,36 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/api';
 
+const TIME_STEP_MINUTES = 15;
+
+const formatDateLocal = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+const parseDateLocal = (dateStr: string) => {
+    const [year, month, day] = dateStr.split('-').map(Number);
+    return new Date(year, month - 1, day);
+};
+
+const getDefaultSchedule = () => {
+    const now = new Date();
+    const next = new Date(now.getTime() + 30 * 60 * 1000);
+    const roundedMinutes = Math.ceil(next.getMinutes() / TIME_STEP_MINUTES) * TIME_STEP_MINUTES;
+    next.setMinutes(roundedMinutes, 0, 0);
+
+    if (roundedMinutes === 60) {
+        next.setHours(next.getHours() + 1, 0, 0, 0);
+    }
+
+    return {
+        date: formatDateLocal(next),
+        departure_time: `${String(next.getHours()).padStart(2, '0')}:${String(next.getMinutes()).padStart(2, '0')}`
+    };
+};
+
 const KARACHI_AREAS = [
     "Gulshan-e-Iqbal",
     "Gulistan-e-Jauhar",
@@ -35,12 +65,14 @@ const KARACHI_UNIVERSITIES = [
 
 export default function OfferRide() {
     const router = useRouter();
+    const defaultSchedule = getDefaultSchedule();
     const [loading, setLoading] = useState(false);
+    const [user, setUser] = useState<any>(null);
     const [formData, setFormData] = useState({
         origin_area: KARACHI_AREAS[0],
         destination_area: KARACHI_UNIVERSITIES[0],
-        departure_time: '08:00',
-        date: new Date().toISOString().split('T')[0],
+        departure_time: defaultSchedule.departure_time,
+        date: defaultSchedule.date,
         seats_available: 3,
         whatsapp_number: ''
     });
@@ -48,20 +80,23 @@ export default function OfferRide() {
     const [customDestination, setCustomDestination] = useState('');
 
     useEffect(() => {
-        if (!localStorage.getItem('access_token')) router.push('/login');
+        if (!localStorage.getItem('access_token')) {
+            router.push('/login');
+        } else {
+            api.get('/auth/me').then(u => setUser(u)).catch(() => router.push('/login'));
+        }
     }, [router]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setLoading(true);
 
-        if (formData.whatsapp_number.length !== 11) {
-            alert("Please enter a valid 11-digit WhatsApp number (e.g. 03001234567)");
-            setLoading(false);
-            return;
+        const payload = { ...formData };
+        if (user) {
+            payload.whatsapp_number = user.phone;
+            payload.destination_area = user.university;
         }
 
-        const payload = { ...formData };
         if (formData.origin_area === "Other") {
             if (!customOrigin.trim()) {
                 alert("Please enter origin area");
@@ -70,13 +105,18 @@ export default function OfferRide() {
             }
             payload.origin_area = customOrigin.trim();
         }
-        if (formData.destination_area === "Other") {
-            if (!customDestination.trim()) {
-                alert("Please enter destination university");
-                setLoading(false);
-                return;
-            }
-            payload.destination_area = customDestination.trim();
+
+        const selectedDeparture = new Date(`${payload.date}T${payload.departure_time}:00`);
+        if (Number.isNaN(selectedDeparture.getTime())) {
+            alert("Please select a valid date and time.");
+            setLoading(false);
+            return;
+        }
+
+        if (selectedDeparture <= new Date()) {
+            alert("Departure date/time must be in the future.");
+            setLoading(false);
+            return;
         }
 
         try {
@@ -141,24 +181,11 @@ export default function OfferRide() {
                         {/* Destination */}
                         <div>
                             <label className="block text-xs font-medium text-slate-500 uppercase tracking-widest mb-2 ml-1">Going to (University)</label>
-                            <select
-                                value={formData.destination_area}
-                                onChange={(e) => setFormData({ ...formData, destination_area: e.target.value })}
-                                className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white appearance-none focus:border-purple-500 outline-none"
-                            >
-                                {KARACHI_UNIVERSITIES.map(uni => <option key={uni} value={uni}>{uni}</option>)}
-                            </select>
-                            {formData.destination_area === "Other" && (
-                                <input
-                                    type="text"
-                                    placeholder="Enter University Name"
-                                    value={customDestination}
-                                    onChange={(e) => setCustomDestination(e.target.value)}
-                                    className="mt-2 w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 outline-none placeholder:text-slate-600"
-                                    required
-                                />
-                            )}
+                            <div className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white/50 cursor-not-allowed">
+                                {user ? user.university : "Loading..."}
+                            </div>
                         </div>
+
 
                         {/* Time & Seats */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -169,14 +196,11 @@ export default function OfferRide() {
                                     {/* Day */}
                                     <select
                                         className="bg-[#111] border border-white/10 rounded-xl px-3 py-3 text-white appearance-none focus:border-purple-500 outline-none"
-                                        value={new Date(formData.date).getDate()}
+                                        value={parseDateLocal(formData.date).getDate()}
                                         onChange={(e) => {
-                                            const d = new Date(formData.date);
+                                            const d = parseDateLocal(formData.date);
                                             d.setDate(parseInt(e.target.value));
-                                            const y = d.getFullYear();
-                                            const m = String(d.getMonth() + 1).padStart(2, '0');
-                                            const day = String(d.getDate()).padStart(2, '0');
-                                            setFormData({ ...formData, date: `${y}-${m}-${day}` });
+                                            setFormData({ ...formData, date: formatDateLocal(d) });
                                         }}
                                     >
                                         {Array.from({ length: 31 }, (_, i) => i + 1).map(d => (
@@ -187,14 +211,11 @@ export default function OfferRide() {
                                     {/* Month */}
                                     <select
                                         className="bg-[#111] border border-white/10 rounded-xl px-3 py-3 text-white appearance-none focus:border-purple-500 outline-none"
-                                        value={new Date(formData.date).getMonth()}
+                                        value={parseDateLocal(formData.date).getMonth()}
                                         onChange={(e) => {
-                                            const d = new Date(formData.date);
+                                            const d = parseDateLocal(formData.date);
                                             d.setMonth(parseInt(e.target.value));
-                                            const y = d.getFullYear();
-                                            const m = String(d.getMonth() + 1).padStart(2, '0');
-                                            const day = String(d.getDate()).padStart(2, '0');
-                                            setFormData({ ...formData, date: `${y}-${m}-${day}` });
+                                            setFormData({ ...formData, date: formatDateLocal(d) });
                                         }}
                                     >
                                         {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
@@ -205,14 +226,11 @@ export default function OfferRide() {
                                     {/* Year */}
                                     <select
                                         className="bg-[#111] border border-white/10 rounded-xl px-3 py-3 text-white appearance-none focus:border-purple-500 outline-none"
-                                        value={new Date(formData.date).getFullYear()}
+                                        value={parseDateLocal(formData.date).getFullYear()}
                                         onChange={(e) => {
-                                            const d = new Date(formData.date);
+                                            const d = parseDateLocal(formData.date);
                                             d.setFullYear(parseInt(e.target.value));
-                                            const y = d.getFullYear();
-                                            const m = String(d.getMonth() + 1).padStart(2, '0');
-                                            const day = String(d.getDate()).padStart(2, '0');
-                                            setFormData({ ...formData, date: `${y}-${m}-${day}` });
+                                            setFormData({ ...formData, date: formatDateLocal(d) });
                                         }}
                                     >
                                         <option value={new Date().getFullYear()}>{new Date().getFullYear()}</option>
@@ -270,21 +288,7 @@ export default function OfferRide() {
                             </div>
                         </div>
 
-                        {/* WhatsApp */}
-                        <div>
-                            <label className="block text-xs font-medium text-slate-500 uppercase tracking-widest mb-2 ml-1">WhatsApp Number</label>
-                            <input
-                                type="text"
-                                placeholder="03001234567"
-                                maxLength={11}
-                                value={formData.whatsapp_number}
-                                onChange={(e) => {
-                                    if (/^\d*$/.test(e.target.value)) setFormData({ ...formData, whatsapp_number: e.target.value })
-                                }}
-                                className="w-full bg-[#111] border border-white/10 rounded-xl px-4 py-3 text-white focus:border-purple-500 outline-none"
-                            />
-                            <p className="text-xs text-slate-500 mt-1 ml-1">Students will contact you on this number.</p>
-                        </div>
+
 
                         <button
                             type="submit"

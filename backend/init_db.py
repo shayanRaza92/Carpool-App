@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel
 from database import engine, create_db_and_tables
-from models import User, Ride # Import models to register them!
+from models import User, Ride, Review, Booking # Import models to register them!
 import logging
 
 # Setup logging

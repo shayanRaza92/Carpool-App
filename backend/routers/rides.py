@@ -38,7 +38,7 @@ def get_current_user_email(token: str = Depends(oauth2_scheme)):
         return None
 
 from datetime import datetime, date, timedelta
-from ..models import Ride, RideCreate, RideRead, User, Booking # Import Booking
+from ..models import Ride, RideCreate, RideRead, User, Booking, Review # Import Booking and Review
 
 # ... (imports remain similar)
 
@@ -64,14 +64,13 @@ async def create_ride(ride: RideCreate, user: User = Depends(get_current_user), 
     if ride_date > tomorrow:
         raise HTTPException(status_code=400, detail="You can only post rides for Today or Tomorrow.")
     
-    # 2. Validate Time if date is Today
-    if ride_date == today:
-        try:
-            ride_time = datetime.strptime(ride.departure_time, "%H:%M").time()
-            if ride_time < now.time():
-                 raise HTTPException(status_code=400, detail="Departure time must be in the future.")
-        except ValueError:
-             raise HTTPException(status_code=400, detail="Invalid time format. Use HH:MM")
+    # 2. Validate departure datetime is in the future
+    try:
+        ride_dt = datetime.strptime(f"{ride.date} {ride.departure_time}", "%Y-%m-%d %H:%M")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid date or time format. Use YYYY-MM-DD for date and HH:MM for time")
+    if ride_dt <= datetime.now():
+        raise HTTPException(status_code=400, detail="Departure datetime must be in the future.")
 
     # Create ride linked to user
     db_ride = Ride(
@@ -90,7 +89,7 @@ async def create_ride(ride: RideCreate, user: User = Depends(get_current_user), 
     session.refresh(db_ride)
     return db_ride
 
-@router.get("/search", response_model=List[RideRead])
+@router.get("/search", response_model=List[dict])
 async def search_rides(area: str, user: User = Depends(get_current_user), session: Session = Depends(get_session)):
     # Search for rides with fuzzy matching logic
     today_str = date.today().isoformat()
@@ -146,7 +145,23 @@ async def search_rides(area: str, user: User = Depends(get_current_user), sessio
         uni_match = is_match(user_uni, r.destination_area)
         
         if area_match and uni_match:
-            valid_results.append(r)
+            # Get driver info for rating display
+            driver = session.exec(select(User).where(User.email == r.driver_email)).first()
+            valid_results.append({
+                "id": r.id,
+                "driver_email": r.driver_email,
+                "driver_name": driver.full_name if driver else "Unknown",
+                "driver_rating": driver.average_rating if driver else 0.0,
+                "driver_total_reviews": driver.total_reviews if driver else 0,
+                "origin_area": r.origin_area,
+                "destination_area": r.destination_area,
+                "departure_time": r.departure_time,
+                "date": r.date,
+                "seats_available": r.seats_available,
+                "whatsapp_number": r.whatsapp_number,
+                "ladies_only": r.ladies_only,
+                "status": r.status
+            })
                 
     return valid_results
 
@@ -197,9 +212,23 @@ async def get_my_bookings(user: User = Depends(get_current_user), session: Sessi
     
     formatted_results = []
     for booking, ride in results:
+        # Get driver info
+        driver = session.exec(select(User).where(User.email == ride.driver_email)).first()
+        
+        # Check if user already reviewed this ride
+        existing_review = session.exec(
+            select(Review).where(
+                Review.ride_id == ride.id,
+                Review.reviewer_email == user.email
+            )
+        ).first()
+        
         formatted_results.append({
             "id": ride.id,
             "driver_email": ride.driver_email,
+            "driver_name": driver.full_name if driver else "Unknown",
+            "driver_rating": driver.average_rating if driver else 0.0,
+            "driver_total_reviews": driver.total_reviews if driver else 0,
             "origin_area": ride.origin_area,
             "destination_area": ride.destination_area,
             "departure_time": ride.departure_time,
@@ -207,7 +236,9 @@ async def get_my_bookings(user: User = Depends(get_current_user), session: Sessi
             "seats_available": ride.seats_available,
             "whatsapp_number": ride.whatsapp_number,
             "booking_status": booking.status, # pending, accepted, rejected
-            "booking_id": booking.id
+            "booking_id": booking.id,
+            "ride_status": ride.status, # scheduled, completed, cancelled
+            "has_reviewed": existing_review is not None,
         })
     return formatted_results
 
@@ -245,6 +276,29 @@ async def update_booking_status(booking_id: int, update: BookingStatusUpdate, us
     session.commit()
     return {"message": f"Booking {update.status}"}
 
+@router.put("/{ride_id}/complete")
+async def complete_ride(ride_id: int, user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    """Mark a ride as completed. Only the driver can do this."""
+    ride = session.get(Ride, ride_id)
+    if not ride:
+        raise HTTPException(status_code=404, detail="Ride not found")
+    
+    # Only driver can complete
+    if ride.driver_email != user.email:
+        raise HTTPException(status_code=403, detail="Only the driver can complete this ride")
+    
+    if ride.status == "completed":
+        raise HTTPException(status_code=400, detail="Ride is already completed")
+    
+    if ride.status == "cancelled":
+        raise HTTPException(status_code=400, detail="Cannot complete a cancelled ride")
+    
+    ride.status = "completed"
+    session.add(ride)
+    session.commit()
+    
+    return {"message": "Ride marked as completed. Passengers can now leave reviews."}
+
 @router.get("/driver/requests")
 async def get_driver_requests(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
     # Get all bookings for rides driven by current user
@@ -267,6 +321,27 @@ async def get_driver_requests(user: User = Depends(get_current_user), session: S
             "time": ride.departure_time
         })
     return requests
+
+@router.get("/my-offered")
+async def get_my_offered_rides(user: User = Depends(get_current_user), session: Session = Depends(get_session)):
+    """Get rides offered by the current driver."""
+    statement = select(Ride).where(Ride.driver_email == user.email).order_by(Ride.date.desc())
+    rides = session.exec(statement).all()
+    
+    result = []
+    for ride in rides:
+        result.append({
+            "id": ride.id,
+            "origin_area": ride.origin_area,
+            "destination_area": ride.destination_area,
+            "departure_time": ride.departure_time,
+            "date": ride.date,
+            "seats_available": ride.seats_available,
+            "whatsapp_number": ride.whatsapp_number,
+            "ladies_only": ride.ladies_only,
+            "status": ride.status
+        })
+    return result
 
 @router.get("/", response_model=List[RideRead])
 async def get_all_rides(session: Session = Depends(get_session)):

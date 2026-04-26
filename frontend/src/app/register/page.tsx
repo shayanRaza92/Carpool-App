@@ -196,14 +196,14 @@ export default function Register() {
                                 )}
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-medium text-slate-500 uppercase tracking-widest ml-1">Phone</label>
+                                <label className="text-xs font-medium text-slate-500 uppercase tracking-widest ml-1">WhatsApp Number</label>
                                 <div className={`transition-all duration-300 rounded-xl border ${activeField === 'phone' ? 'border-purple-500 bg-purple-500/5' : 'border-slate-800 bg-slate-900'} p-1`}>
                                     <input
                                         type="text"
                                         required
                                         maxLength={11}
                                         className="w-full bg-transparent border-none outline-none text-white px-4 py-3 placeholder:text-slate-600"
-                                        placeholder="0300..."
+                                        placeholder="03001234567"
                                         value={formData.phone}
                                         onFocus={() => setActiveField('phone')}
                                         onBlur={() => setActiveField(null)}

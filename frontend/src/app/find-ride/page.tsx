@@ -152,16 +152,27 @@ export default function FindRide() {
                                 {rides.map((ride) => (
                                     <div key={ride.id} className="bg-[#0a0a0a] border border-white/5 hover:border-purple-500/50 transition-colors p-6 rounded-xl flex flex-col md:flex-row justify-between items-center group">
                                         <div className="flex items-center gap-6 w-full md:w-auto mb-4 md:mb-0">
-                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-lg font-bold">
-                                                {ride.driver_email[0].toUpperCase()}
+                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center text-lg font-bold shrink-0">
+                                                {(ride.driver_name || ride.driver_email)[0].toUpperCase()}
                                             </div>
                                             <div>
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <h4 className="font-semibold text-lg">To {ride.destination_area}</h4>
+                                                <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                                    <h4 className="font-semibold text-lg">{ride.driver_name || ride.driver_email}</h4>
+                                                    <span className="text-slate-500 text-sm">&rarr; {ride.destination_area}</span>
                                                     <span className="bg-emerald-500/10 text-emerald-400 text-xs px-2 py-0.5 rounded border border-emerald-500/20">
                                                         {ride.seats_available} seats left
                                                     </span>
                                                 </div>
+                                                {ride.driver_total_reviews > 0 && (
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <div className="flex gap-0.5">
+                                                            {[1,2,3,4,5].map(s => (
+                                                                <svg key={s} className={`w-3.5 h-3.5 ${s <= Math.round(ride.driver_rating) ? 'text-amber-400' : 'text-slate-600'}`} fill="currentColor" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" /></svg>
+                                                            ))}
+                                                        </div>
+                                                        <span className="text-xs text-slate-400">{ride.driver_rating.toFixed(1)} ({ride.driver_total_reviews} review{ride.driver_total_reviews !== 1 ? 's' : ''})</span>
+                                                    </div>
+                                                )}
                                                 <div className="flex items-center gap-4 text-sm text-slate-400">
                                                     <span className="flex items-center gap-1">
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
@@ -172,7 +183,7 @@ export default function FindRide() {
                                                         {ride.departure_time}
                                                     </span>
                                                     <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                                                    <span>{ride.driver_email}</span>
+                                                    <span>From: {ride.origin_area}</span>
                                                 </div>
                                             </div>
                                         </div>
